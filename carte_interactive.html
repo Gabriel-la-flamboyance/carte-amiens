@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distribution Flyers Amiens - Sync Auto</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        #map-container {
+            height: calc(100vh - 240px);
+            position: relative;
+        }
+        
+        .leaflet-container {
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
+        <h1 class="text-2xl font-bold mb-1">🗺️ Distribution de Flyers - Amiens</h1>
+        <p class="text-sm opacity-90">Synchronisation automatique en temps réel</p>
+    </div>
+
+    <!-- Controls -->
+    <div class="bg-white border-b border-gray-200 p-4 flex flex-wrap gap-4 items-center">
+        <div class="flex items-center gap-2">
+            <label class="font-medium text-gray-700">Votre nom :</label>
+            <input
+                type="text"
+                id="collaborateur"
+                placeholder="Ex: Jean Dupont"
+                class="px-3 py-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+            />
+        </div>
+        
+        <button
+            onclick="rafraichirDonnees()"
+            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all hover:shadow-lg font-semibold"
+        >
+            🔄 Rafraîchir
+        </button>
+        
+        <button
+            onclick="resetMesRues()"
+            class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all hover:shadow-lg font-semibold"
+        >
+            🔄 Réinitialiser mes rues
+        </button>
+        
+        <button
+            onclick="resetTout()"
+            class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all hover:shadow-lg font-semibold"
+        >
+            ⚠️ Réinitialiser TOUT (Admin)
+        </button>
+        
+        <div class="ml-auto text-sm text-gray-600">
+            Dernière synchro: <span id="lastUpdate">--:--:--</span>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="map-container">
+        <div id="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100 z-[2000]">
+            <div class="text-center">
+                <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mb-4"></div>
+                <p class="text-xl font-semibold text-gray-700">Chargement des rues d'Amiens...</p>
+                <p class="text-sm text-gray-500 mt-2">Cela peut prendre 15-30 secondes</p>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+
+        <!-- Stats Panel -->
+        <div class="absolute top-4 right-4 bg-white rounded-lg shadow-2xl p-4 w-72 z-[1000]">
+            <h3 class="text-lg font-bold mb-3 pb-2 border-b-2 border-purple-500">
+                📊 Statistiques
+            </h3>
+            
+            <div class="space-y-2 mb-4">
+                <div class="flex justify-between">
+                    <span class="text-gray-700">Total de rues:</span>
+                    <span class="font-bold text-purple-600" id="totalRues">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-700">Visitées:</span>
+                    <span class="font-bold text-green-600" id="ruesVisitees">0</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-700">Restantes:</span>
+                    <span class="font-bold text-red-600" id="ruesRestantes">0</span>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="h-6 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                        id="progressBar"
+                        class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
+                        style="width: 0%"
+                    >
+                        0%
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mb-4 pb-4 border-b border-gray-200">
+                <div class="flex items-center gap-2 mb-2">
+                    <div class="w-8 h-1 bg-red-500 rounded"></div>
+                    <span class="text-sm text-gray-700">À visiter</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-1 bg-green-500 rounded"></div>
+                    <span class="text-sm text-gray-700">Visitées</span>
+                </div>
+            </div>
+
+            <!-- Team Stats -->
+            <div id="teamStats"></div>
+        </div>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="bg-blue-50 border-t border-blue-200 p-3 text-center text-sm text-blue-800">
+        💡 <strong>Astuce:</strong> Les données sont synchronisées automatiquement. 
+        Tous les membres de l'équipe voient les mêmes informations en temps réel !
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // ========================================
+        // 🔐 CONFIGURATION MOT DE PASSE ADMIN
+        // ========================================
+        // Pour changer le mot de passe de réinitialisation totale,
+        // modifiez la ligne : const MOT_DE_PASSE_ADMIN = 'admin2024';
+        // dans la fonction resetTout() ci-dessous
+        // ========================================
+        
+        // Configuration
+        const AMIENS_CENTER = [49.8941, 2.2958];
+        const STORAGE_KEY = 'amiens_progression';
+        
+        let map;
+        let rues = [];
+        let progression = {};
+        let ruesLayer;
+
+        // Initialisation
+        async function init() {
+            // Initialiser la carte
+            map = L.map('map').setView(AMIENS_CENTER, 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            ruesLayer = L.layerGroup().addTo(map);
+            
+            // Charger les données
+            await chargerProgression();
+            await chargerRues();
+            
+            // Auto-refresh toutes les 10 secondes
+            setInterval(rafraichirDonnees, 10000);
+        }
+
+        // Charger les rues depuis OpenStreetMap
+        async function chargerRues() {
+            try {
+                document.getElementById('loading').style.display = 'flex';
+                
+                const bbox = '49.85,2.25,49.93,2.35';
+                const query = `
+                    [out:json][timeout:25];
+                    (
+                      way["highway"]["name"](${bbox});
+                    );
+                    out geom;
+                `;
+                
+                const response = await fetch('https://overpass-api.de/api/interpreter', {
+                    method: 'POST',
+                    body: query
+                });
+                
+                const data = await response.json();
+                
+                rues = data.elements.map(rue => ({
+                    id: `rue_${rue.id}`,
+                    nom: rue.tags.name || 'Rue sans nom',
+                    coords: rue.geometry.map(point => [point.lat, point.lon])
+                }));
+                
+                afficherRues();
+                mettreAJourStats();
+                
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors du chargement des rues. Vérifiez votre connexion.');
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Charger la progression depuis le stockage partagé
+        async function chargerProgression() {
+            try {
+                const result = await window.storage.get(STORAGE_KEY, true);
+                if (result && result.value) {
+                    progression = JSON.parse(result.value);
+                }
+            } catch (error) {
+                console.log('Aucune progression existante');
+                progression = {};
+            }
+            updateLastSyncTime();
+        }
+
+        // Sauvegarder la progression
+        async function sauvegarderProgression() {
+            try {
+                await window.storage.set(STORAGE_KEY, JSON.stringify(progression), true);
+                updateLastSyncTime();
+            } catch (error) {
+                console.error('Erreur de sauvegarde:', error);
+                alert('Erreur lors de la sauvegarde. Vérifiez votre connexion.');
+            }
+        }
+
+        // Afficher les rues sur la carte
+        function afficherRues() {
+            ruesLayer.clearLayers();
+            
+            rues.forEach(rue => {
+                const estVisitee = progression[rue.id];
+                const couleur = estVisitee ? '#22c55e' : '#ef4444';
+                const poids = estVisitee ? 4 : 2.5;
+
+                const polyline = L.polyline(rue.coords, {
+                    color: couleur,
+                    weight: poids,
+                    opacity: 0.7
+                });
+
+                let popupContent = `<div style="padding: 8px;">
+                    <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${rue.nom}</h3>`;
+                
+                if (estVisitee) {
+                    popupContent += `
+                        <p style="color: #22c55e;">✅ <strong>Visitée</strong></p>
+                        <p style="margin-top: 4px;">Par: ${estVisitee.collaborateur}</p>
+                        <p style="font-size: 12px; color: #666;">${estVisitee.date}</p>
+                    `;
+                } else {
+                    popupContent += `
+                        <p style="color: #ef4444;">❌ <strong>Non visitée</strong></p>
+                        <p style="font-size: 12px; color: #666; margin-top: 4px;">Cliquez pour marquer</p>
+                    `;
+                }
+                popupContent += `</div>`;
+
+                polyline.bindPopup(popupContent);
+                polyline.bindTooltip(rue.nom);
+                
+                polyline.on('click', () => marquerRue(rue.id, rue.nom));
+                
+                polyline.addTo(ruesLayer);
+            });
+        }
+
+        // Marquer une rue comme visitée
+        async function marquerRue(rueId, nomRue) {
+            const collaborateur = document.getElementById('collaborateur').value.trim();
+            
+            if (!collaborateur) {
+                alert('⚠️ Veuillez entrer votre nom avant de marquer une rue !');
+                return;
+            }
+
+            if (progression[rueId]) {
+                const confirmer = confirm(
+                    `Cette rue a déjà été visitée par ${progression[rueId].collaborateur}.\n\nVoulez-vous remplacer cette information ?`
+                );
+                if (!confirmer) return;
+            }
+
+            progression[rueId] = {
+                collaborateur: collaborateur,
+                date: new Date().toLocaleString('fr-FR'),
+                nomRue: nomRue
+            };
+
+            await sauvegarderProgression();
+            afficherRues();
+            mettreAJourStats();
+        }
+
+        // Mettre à jour les statistiques
+        function mettreAJourStats() {
+            const total = rues.length;
+            const visitees = Object.keys(progression).length;
+            const restantes = total - visitees;
+            const pourcentage = total > 0 ? Math.round((visitees / total) * 100) : 0;
+
+            document.getElementById('totalRues').textContent = total;
+            document.getElementById('ruesVisitees').textContent = visitees;
+            document.getElementById('ruesRestantes').textContent = restantes;
+            
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = pourcentage + '%';
+            progressBar.textContent = pourcentage + '%';
+
+            // Statistiques par collaborateur
+            const collaborateurs = {};
+            Object.values(progression).forEach(info => {
+                collaborateurs[info.collaborateur] = (collaborateurs[info.collaborateur] || 0) + 1;
+            });
+
+            let teamHTML = '';
+            if (Object.keys(collaborateurs).length > 0) {
+                teamHTML = '<h4 class="font-semibold text-sm mb-2 text-gray-700">👥 Équipe</h4>';
+                teamHTML += '<div class="max-h-40 overflow-y-auto space-y-1">';
+                
+                Object.entries(collaborateurs)
+                    .sort((a, b) => b[1] - a[1])
+                    .forEach(([nom, count]) => {
+                        teamHTML += `
+                            <div class="flex justify-between text-sm py-1 border-b border-gray-100">
+                                <span class="text-gray-700 truncate">${nom}</span>
+                                <span class="font-bold text-purple-600">${count}</span>
+                            </div>
+                        `;
+                    });
+                
+                teamHTML += '</div>';
+            }
+            
+            document.getElementById('teamStats').innerHTML = teamHTML;
+        }
+
+        // Rafraîchir les données
+        async function rafraichirDonnees() {
+            await chargerProgression();
+            afficherRues();
+            mettreAJourStats();
+        }
+
+        // Réinitialiser seulement mes rues
+        async function resetMesRues() {
+            const collaborateur = document.getElementById('collaborateur').value.trim();
+            
+            if (!collaborateur) {
+                alert('⚠️ Veuillez entrer votre nom pour pouvoir réinitialiser vos rues !');
+                return;
+            }
+
+            // Compter combien de rues appartiennent à cet utilisateur
+            const mesRues = Object.entries(progression).filter(
+                ([_, info]) => info.collaborateur === collaborateur
+            );
+
+            if (mesRues.length === 0) {
+                alert(`Vous n'avez marqué aucune rue sous le nom "${collaborateur}".`);
+                return;
+            }
+
+            const confirmer = confirm(
+                `Vous allez réinitialiser ${mesRues.length} rue(s) que vous avez marquée(s).\n\n` +
+                `Les rues marquées par vos collègues ne seront PAS affectées.\n\n` +
+                `Continuer ?`
+            );
+
+            if (!confirmer) return;
+
+            // Supprimer seulement les rues de cet utilisateur
+            mesRues.forEach(([rueId, _]) => {
+                delete progression[rueId];
+            });
+
+            await sauvegarderProgression();
+            afficherRues();
+            mettreAJourStats();
+
+            alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) avec succès !`);
+        }
+
+        // Réinitialiser TOUTE la progression (protégé par mot de passe)
+        async function resetTout() {
+            // Mot de passe admin (CHANGEZ-LE !)
+            const MOT_DE_PASSE_ADMIN = 'admin2024';
+            
+            const motDePasse = prompt(
+                '🔐 RÉINITIALISATION TOTALE\n\n' +
+                'Cette action va effacer TOUTES les rues de TOUS les collaborateurs.\n\n' +
+                'Entrez le mot de passe administrateur pour continuer :'
+            );
+
+            if (!motDePasse) return;
+
+            if (motDePasse !== MOT_DE_PASSE_ADMIN) {
+                alert('❌ Mot de passe incorrect !');
+                return;
+            }
+
+            const totalRues = Object.keys(progression).length;
+
+            const confirmer = confirm(
+                `⚠️ ATTENTION ⚠️\n\n` +
+                `Vous allez SUPPRIMER la progression de TOUTE l'équipe :\n` +
+                `- ${totalRues} rues visitées seront réinitialisées\n` +
+                `- Tous les collaborateurs seront affectés\n\n` +
+                `Cette action est IRRÉVERSIBLE !\n\n` +
+                `Êtes-vous ABSOLUMENT sûr ?`
+            );
+
+            if (!confirmer) return;
+
+            progression = {};
+            await sauvegarderProgression();
+            afficherRues();
+            mettreAJourStats();
+
+            alert('✅ Toute la progression a été réinitialisée.');
+        }
+
+        // Mettre à jour l'heure de synchronisation
+        function updateLastSyncTime() {
+            const now = new Date();
+            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('fr-FR');
+        }
+
+        // Démarrage
+        window.onload = init;
+    </script>
+</body>
+</html>
