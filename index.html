@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distribution Flyers Amiens - Sécurisé</title>
+    <title>Distribution Flyers Amiens - Sync Firebase</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -22,10 +22,13 @@
             width: 100%;
         }
         
+        /* Sur mobile, replier le panneau de stats par défaut */
         @media (max-width: 768px) {
             #statsContent {
                 display: none;
             }
+            
+            /* Ajuster la hauteur de la carte sur mobile */
             #map-container {
                 height: calc(100vh - 180px);
             }
@@ -34,80 +37,13 @@
         .hidden {
             display: none;
         }
-        
-        /* Modal styles */
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 3000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(5px);
-        }
-        
-        .modal-content {
-            background-color: white;
-            margin: 10% auto;
-            padding: 30px;
-            border-radius: 15px;
-            width: 90%;
-            max-width: 400px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-        }
-        
-        .modal-input {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-        
-        .modal-input:focus {
-            outline: none;
-            border-color: #7c3aed;
-        }
-        
-        .modal-btn {
-            width: 100%;
-            padding: 12px;
-            margin: 5px 0;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .modal-btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .modal-btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .modal-btn-secondary {
-            background: #e5e7eb;
-            color: #374151;
-        }
-        
-        .modal-btn-secondary:hover {
-            background: #d1d5db;
-        }
     </style>
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
         <h1 class="text-2xl font-bold mb-1">🗺️ Distribution de Flyers - Amiens</h1>
-        <p class="text-sm opacity-90">🔒 Version sécurisée avec authentification admin</p>
+        <p class="text-sm opacity-90">🔥 Synchronisation FIREBASE en temps réel</p>
     </div>
 
     <!-- Controls -->
@@ -136,60 +72,11 @@
             🔄 Réinitialiser mes rues
         </button>
         
-        <button
-            onclick="showAdminModal()"
-            class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all hover:shadow-lg font-semibold flex items-center gap-2"
-        >
-            <span>🔒</span>
-            <span>Admin : Tout réinitialiser</span>
-        </button>
-        
         <div class="ml-auto text-sm text-gray-600 flex items-center gap-2">
             <span id="firebaseStatus" class="flex items-center gap-1">
                 <span class="w-2 h-2 rounded-full bg-gray-400"></span>
                 Connexion...
             </span>
-        </div>
-    </div>
-
-    <!-- Modal de connexion admin -->
-    <div id="adminModal" class="modal">
-        <div class="modal-content">
-            <div class="text-center mb-6">
-                <div class="text-5xl mb-3">🔐</div>
-                <h2 class="text-2xl font-bold text-gray-800">Accès Administrateur</h2>
-                <p class="text-sm text-gray-600 mt-2">Connectez-vous pour réinitialiser toute la progression</p>
-            </div>
-            
-            <div id="authError" class="hidden mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
-            </div>
-            
-            <input
-                type="email"
-                id="adminEmail"
-                placeholder="Email administrateur"
-                class="modal-input"
-            />
-            
-            <input
-                type="password"
-                id="adminPassword"
-                placeholder="Mot de passe"
-                class="modal-input"
-            />
-            
-            <button onclick="authenticateAdmin()" class="modal-btn modal-btn-primary">
-                🔓 Se connecter
-            </button>
-            
-            <button onclick="closeAdminModal()" class="modal-btn modal-btn-secondary">
-                Annuler
-            </button>
-            
-            <div class="mt-4 text-xs text-center text-gray-500">
-                <p>⚠️ Seuls les administrateurs autorisés peuvent réinitialiser la progression complète.</p>
-                <p class="mt-1">Les identifiants sont gérés de manière sécurisée par Firebase.</p>
-            </div>
         </div>
     </div>
 
@@ -205,10 +92,13 @@
         
         <div id="map"></div>
 
-        <!-- Stats Panel -->
+        <!-- Stats Panel - Repliable sur mobile -->
         <div class="absolute top-4 right-4 bg-white rounded-lg shadow-2xl w-72 z-[1000] max-w-[calc(100vw-2rem)] md:w-72">
+            <!-- Header avec bouton toggle -->
             <div class="flex justify-between items-center p-4 border-b-2 border-purple-500">
-                <h3 class="text-lg font-bold">📊 Statistiques</h3>
+                <h3 class="text-lg font-bold">
+                    📊 Statistiques
+                </h3>
                 <button
                     onclick="toggleStats()"
                     class="md:hidden px-3 py-1 bg-purple-500 text-white rounded-lg font-bold text-lg"
@@ -218,7 +108,10 @@
                 </button>
             </div>
             
+            <!-- Contenu repliable -->
             <div id="statsContent" class="p-4">
+            
+            <!-- Pourcentage de progression grand et visible -->
             <div class="text-center mb-4 p-3 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg">
                 <div class="text-4xl font-bold text-purple-600" id="pourcentageGrand">0%</div>
                 <div class="text-sm text-gray-600 mt-1">Progression totale</div>
@@ -239,6 +132,7 @@
                 </div>
             </div>
 
+            <!-- Progress Bar -->
             <div class="mb-4">
                 <div class="h-6 bg-gray-200 rounded-full overflow-hidden">
                     <div
@@ -251,6 +145,7 @@
                 </div>
             </div>
 
+            <!-- Legend -->
             <div class="mb-4 pb-4 border-b border-gray-200">
                 <div class="flex items-center gap-2 mb-2">
                     <div class="w-8 h-1 bg-red-500 rounded"></div>
@@ -262,14 +157,16 @@
                 </div>
             </div>
 
+            <!-- Team Stats -->
             <div id="teamStats"></div>
-            </div>
+            </div><!-- Fin statsContent -->
         </div>
     </div>
 
     <!-- Info Banner -->
-    <div class="bg-green-50 border-t border-green-200 p-3 text-center text-sm text-green-800">
-        🔒 <strong>Sécurisé :</strong> Authentification admin + Protection Firebase. Impossible de contourner !
+    <div class="bg-blue-50 border-t border-blue-200 p-3 text-center text-sm text-blue-800">
+        🔥 <strong>Firebase:</strong> Synchronisation RÉELLE en temps réel ! 
+        Tous les membres de l'équipe voient les MÊMES données instantanément !
     </div>
 
     <!-- Barre de recherche flottante -->
@@ -301,7 +198,6 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
         import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-        import { getAuth, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
         
         // ============================================
         // 🔥 CONFIGURATION FIREBASE
@@ -320,14 +216,11 @@
         // Initialiser Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
-        const auth = getAuth(app);
         const progressionRef = ref(database, 'progression');
         
-        // Rendre disponibles globalement
+        // Rendre database disponible globalement
         window.firebaseDB = database;
-        window.firebaseAuth = auth;
         window.firebaseProgressionRef = progressionRef;
-        window.firebaseAuthModule = { signInWithEmailAndPassword, signOut };
         
         // Écouter les changements en temps réel
         onValue(progressionRef, (snapshot) => {
@@ -364,6 +257,7 @@
 
         // Initialisation
         async function init() {
+            // Initialiser la carte
             map = L.map('map').setView(AMIENS_CENTER, 13);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -373,6 +267,7 @@
             
             ruesLayer = L.layerGroup().addTo(map);
             
+            // Charger les rues
             await chargerRues();
         }
 
@@ -409,7 +304,7 @@
                 document.getElementById('loading').style.display = 'none';
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('Erreur lors du chargement des rues.');
+                alert('Erreur lors du chargement des rues. Vérifiez votre connexion.');
                 document.getElementById('loading').style.display = 'none';
             }
         }
@@ -421,7 +316,7 @@
                 await set(ref(window.firebaseDB, `progression/${rueId}`), data);
             } catch (error) {
                 console.error('Erreur de sauvegarde Firebase:', error);
-                alert('Erreur de synchronisation.');
+                alert('Erreur de synchronisation. Vérifiez votre connexion Internet.');
             }
         }
 
@@ -488,6 +383,7 @@
                 nomRue: nomRue
             };
 
+            // Sauvegarder dans Firebase
             await sauvegarderDansFirebase(rueId, data);
         }
 
@@ -506,8 +402,10 @@
             progressBar.style.width = pourcentage + '%';
             progressBar.textContent = pourcentage + '%';
             
+            // Mettre à jour le grand pourcentage
             document.getElementById('pourcentageGrand').textContent = pourcentage + '%';
 
+            // Statistiques par collaborateur
             const collaborateurs = {};
             Object.values(progression).forEach(info => {
                 collaborateurs[info.collaborateur] = (collaborateurs[info.collaborateur] || 0) + 1;
@@ -535,7 +433,7 @@
             document.getElementById('teamStats').innerHTML = teamHTML;
         }
 
-        // Rafraîchir
+        // Rafraîchir les données (déjà automatique avec Firebase)
         function rafraichirDonnees() {
             afficherRues();
             mettreAJourStats();
@@ -547,7 +445,7 @@
             const collaborateur = document.getElementById('collaborateur').value.trim();
             
             if (!collaborateur) {
-                alert('⚠️ Veuillez entrer votre nom !');
+                alert('⚠️ Veuillez entrer votre nom pour pouvoir réinitialiser vos rues !');
                 return;
             }
 
@@ -561,116 +459,24 @@
             }
 
             const confirmer = confirm(
-                `Vous allez réinitialiser ${mesRues.length} rue(s).\n\n` +
-                `Les rues de vos collègues ne seront PAS affectées.\n\nContinuer ?`
+                `Vous allez réinitialiser ${mesRues.length} rue(s) que vous avez marquée(s).\n\n` +
+                `Les rues marquées par vos collègues ne seront PAS affectées.\n\n` +
+                `Continuer ?`
             );
 
             if (!confirmer) return;
 
+            // Supprimer dans Firebase
             const { remove, ref } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
             for (const [rueId, _] of mesRues) {
                 await remove(ref(window.firebaseDB, `progression/${rueId}`));
             }
 
-            alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) !`);
+            alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) avec succès !`);
         }
 
-        // Afficher le modal admin
-        function showAdminModal() {
-            document.getElementById('adminModal').style.display = 'block';
-            document.getElementById('authError').classList.add('hidden');
-            document.getElementById('adminEmail').value = '';
-            document.getElementById('adminPassword').value = '';
-        }
-
-        // Fermer le modal admin
-        function closeAdminModal() {
-            document.getElementById('adminModal').style.display = 'none';
-        }
-
-        // Authentifier l'admin
-        async function authenticateAdmin() {
-            const email = document.getElementById('adminEmail').value.trim();
-            const password = document.getElementById('adminPassword').value;
-            const errorDiv = document.getElementById('authError');
-
-            if (!email || !password) {
-                errorDiv.textContent = '❌ Veuillez remplir tous les champs.';
-                errorDiv.classList.remove('hidden');
-                return;
-            }
-
-            try {
-                const { signInWithEmailAndPassword } = window.firebaseAuthModule;
-                await signInWithEmailAndPassword(window.firebaseAuth, email, password);
-                
-                // Authentification réussie
-                closeAdminModal();
-                await performAdminReset();
-                
-            } catch (error) {
-                console.error('Erreur auth:', error);
-                let message = '❌ Erreur d\'authentification. ';
-                
-                if (error.code === 'auth/invalid-email') {
-                    message += 'Email invalide.';
-                } else if (error.code === 'auth/user-not-found') {
-                    message += 'Utilisateur non trouvé.';
-                } else if (error.code === 'auth/wrong-password') {
-                    message += 'Mot de passe incorrect.';
-                } else if (error.code === 'auth/invalid-credential') {
-                    message += 'Identifiants invalides.';
-                } else {
-                    message += error.message;
-                }
-                
-                errorDiv.textContent = message;
-                errorDiv.classList.remove('hidden');
-            }
-        }
-
-        // Réinitialisation admin (après auth)
-        async function performAdminReset() {
-            const totalRues = Object.keys(progression).length;
-
-            const confirmer = confirm(
-                `🔐 AUTHENTIFIÉ\n\n` +
-                `Vous allez SUPPRIMER la progression de TOUTE l'équipe :\n` +
-                `- ${totalRues} rues visitées seront réinitialisées\n\n` +
-                `Cette action est IRRÉVERSIBLE !\n\nContinuer ?`
-            );
-
-            if (!confirmer) {
-                // Déconnexion
-                const { signOut } = window.firebaseAuthModule;
-                await signOut(window.firebaseAuth);
-                return;
-            }
-
-            try {
-                const { remove } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
-                await remove(window.firebaseProgressionRef);
-                
-                alert('✅ Toute la progression a été réinitialisée.');
-                
-                // Déconnexion
-                const { signOut } = window.firebaseAuthModule;
-                await signOut(window.firebaseAuth);
-            } catch (error) {
-                console.error('Erreur lors de la réinitialisation:', error);
-                alert('❌ Erreur lors de la réinitialisation. Vérifiez les règles Firebase.');
-            }
-        }
-
-        // Fermer le modal en cliquant à l'extérieur
-        window.onclick = function(event) {
-            const modal = document.getElementById('adminModal');
-            if (event.target == modal) {
-                closeAdminModal();
-            }
-        }
-
-        // Toggle du panneau de stats
+        // Réinitialiser TOUTE la progression
+        // Toggle du panneau de stats (mobile)
         let statsExpanded = window.innerWidth >= 768;
         
         function toggleStats() {
@@ -736,7 +542,7 @@
             searchResults.classList.remove('hidden');
         }
 
-        // Zoomer sur une rue
+        // Zoomer sur une rue spécifique
         function zoomerSurRue(rueId) {
             const rue = rues.find(r => r.id === rueId);
             if (!rue || !rue.coords || rue.coords.length === 0) return;
@@ -752,8 +558,8 @@
             setTimeout(() => {
                 const estVisitee = progression[rueId];
                 const message = estVisitee 
-                    ? `📍 ${rue.nom}\n\n✅ Visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
-                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue !`;
+                    ? `📍 ${rue.nom}\n\n✅ Déjà visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
+                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour la marquer !`;
                 alert(message);
             }, 300);
         }
@@ -765,7 +571,7 @@
             document.getElementById('searchResults').innerHTML = '';
         }
 
-        // Initialisation mobile
+        // Initialiser l'état du panneau au chargement
         window.addEventListener('DOMContentLoaded', () => {
             const isMobile = window.innerWidth < 768;
             if (isMobile) {
@@ -779,7 +585,7 @@
             }
         });
 
-        // Rendre disponibles globalement
+        // Rendre les fonctions disponibles globalement
         window.afficherRues = afficherRues;
         window.mettreAJourStats = mettreAJourStats;
         window.progression = progression;
@@ -789,4 +595,3 @@
     </script>
 </body>
 </html>
-
