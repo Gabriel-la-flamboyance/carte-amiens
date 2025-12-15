@@ -434,8 +434,15 @@
             afficherRues();
             mettreAJourStats();
             
-            // Afficher un message de confirmation
-            alert(`✅ Rue "${nomRue}" marquée comme visitée !`);
+            // Rouvrir le popup de cette rue pour afficher le nouveau statut
+            setTimeout(() => {
+                // Trouver la polyline correspondante et ouvrir son popup
+                ruesLayer.eachLayer(layer => {
+                    if (layer._popup && layer._popup._content && layer._popup._content.includes(nomRue)) {
+                        layer.openPopup();
+                    }
+                });
+            }, 100);
         }
         
         // Rendre marquerRue disponible globalement pour les popups
