@@ -86,6 +86,12 @@
                 📊 Statistiques
             </h3>
             
+            <!-- Pourcentage de progression grand et visible -->
+            <div class="text-center mb-4 p-3 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg">
+                <div class="text-4xl font-bold text-purple-600" id="pourcentageGrand">0%</div>
+                <div class="text-sm text-gray-600 mt-1">Progression totale</div>
+            </div>
+            
             <div class="space-y-2 mb-4">
                 <div class="flex justify-between">
                     <span class="text-gray-700">Total de rues:</span>
@@ -323,6 +329,9 @@
             const progressBar = document.getElementById('progressBar');
             progressBar.style.width = pourcentage + '%';
             progressBar.textContent = pourcentage + '%';
+            
+            // Mettre à jour le grand pourcentage
+            document.getElementById('pourcentageGrand').textContent = pourcentage + '%';
 
             // Statistiques par collaborateur
             const collaborateurs = {};
@@ -354,7 +363,15 @@
 
         // Rafraîchir les données
         async function rafraichirDonnees() {
+            // Sauvegarder les données locales actuelles
+            const donneesLocales = { ...progression };
+            
+            // Charger les données du serveur
             await chargerProgression();
+            
+            // Fusionner : les données locales ont priorité (pour éviter de perdre ce qu'on vient de faire)
+            progression = { ...progression, ...donneesLocales };
+            
             afficherRues();
             mettreAJourStats();
         }
