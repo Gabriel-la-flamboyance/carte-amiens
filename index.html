@@ -21,6 +21,22 @@
             height: 100%;
             width: 100%;
         }
+        
+        /* Sur mobile, replier le panneau de stats par défaut */
+        @media (max-width: 768px) {
+            #statsContent {
+                display: none;
+            }
+            
+            /* Ajuster la hauteur de la carte sur mobile */
+            #map-container {
+                height: calc(100vh - 180px);
+            }
+        }
+        
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -80,11 +96,24 @@
         
         <div id="map"></div>
 
-        <!-- Stats Panel -->
-        <div class="absolute top-4 right-4 bg-white rounded-lg shadow-2xl p-4 w-72 z-[1000]">
-            <h3 class="text-lg font-bold mb-3 pb-2 border-b-2 border-purple-500">
-                📊 Statistiques
-            </h3>
+        <!-- Stats Panel - Repliable sur mobile -->
+        <div class="absolute top-4 right-4 bg-white rounded-lg shadow-2xl w-72 z-[1000] max-w-[calc(100vw-2rem)] md:w-72">
+            <!-- Header avec bouton toggle -->
+            <div class="flex justify-between items-center p-4 border-b-2 border-purple-500">
+                <h3 class="text-lg font-bold">
+                    📊 Statistiques
+                </h3>
+                <button
+                    onclick="toggleStats()"
+                    class="md:hidden px-3 py-1 bg-purple-500 text-white rounded-lg font-bold text-lg"
+                    id="toggleStatsBtn"
+                >
+                    ▼
+                </button>
+            </div>
+            
+            <!-- Contenu repliable -->
+            <div id="statsContent" class="p-4">
             
             <!-- Pourcentage de progression grand et visible -->
             <div class="text-center mb-4 p-3 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg">
@@ -134,6 +163,7 @@
 
             <!-- Team Stats -->
             <div id="teamStats"></div>
+            </div><!-- Fin statsContent -->
         </div>
     </div>
 
@@ -141,6 +171,28 @@
     <div class="bg-blue-50 border-t border-blue-200 p-3 text-center text-sm text-blue-800">
         💡 <strong>Astuce:</strong> Les données sont synchronisées automatiquement. 
         Tous les membres de l'équipe voient les mêmes informations en temps réel !
+    </div>
+
+    <!-- Barre de recherche flottante -->
+    <div class="fixed bottom-4 left-4 right-4 md:left-1/4 md:right-1/4 z-[2000]">
+        <div class="bg-white rounded-lg shadow-2xl p-3">
+            <div class="flex gap-2">
+                <input
+                    type="text"
+                    id="searchInput"
+                    placeholder="🔍 Rechercher une rue..."
+                    class="flex-1 px-3 py-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
+                    oninput="rechercherRue(this.value)"
+                />
+                <button
+                    onclick="clearSearch()"
+                    class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold"
+                >
+                    ✕
+                </button>
+            </div>
+            <div id="searchResults" class="mt-2 max-h-48 overflow-y-auto hidden"></div>
+        </div>
     </div>
 
     <!-- Leaflet JS -->
@@ -177,7 +229,7 @@
             ruesLayer = L.layerGroup().addTo(map);
             
             // Charger les données
-            await chargerProgression();
+            chargerProgression();
             await chargerRues();
             
             // Auto-refresh toutes les 10 secondes
@@ -222,12 +274,12 @@
             }
         }
 
-        // Charger la progression depuis le stockage partagé
-        async function chargerProgression() {
+        // Charger la progression depuis localStorage
+        function chargerProgression() {
             try {
-                const result = await window.storage.get(STORAGE_KEY, true);
-                if (result && result.value) {
-                    progression = JSON.parse(result.value);
+                const data = localStorage.getItem(STORAGE_KEY);
+                if (data) {
+                    progression = JSON.parse(data);
                 }
             } catch (error) {
                 console.log('Aucune progression existante');
@@ -236,14 +288,14 @@
             updateLastSyncTime();
         }
 
-        // Sauvegarder la progression
-        async function sauvegarderProgression() {
+        // Sauvegarder la progression dans localStorage
+        function sauvegarderProgression() {
             try {
-                await window.storage.set(STORAGE_KEY, JSON.stringify(progression), true);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(progression));
                 updateLastSyncTime();
             } catch (error) {
                 console.error('Erreur de sauvegarde:', error);
-                alert('Erreur lors de la sauvegarde. Vérifiez votre connexion.');
+                alert('Erreur lors de la sauvegarde. Votre navigateur bloque peut-être le stockage.');
             }
         }
 
@@ -289,7 +341,7 @@
         }
 
         // Marquer une rue comme visitée
-        async function marquerRue(rueId, nomRue) {
+        function marquerRue(rueId, nomRue) {
             const collaborateur = document.getElementById('collaborateur').value.trim();
             
             if (!collaborateur) {
@@ -310,7 +362,7 @@
                 nomRue: nomRue
             };
 
-            await sauvegarderProgression();
+            sauvegarderProgression();
             afficherRues();
             mettreAJourStats();
         }
@@ -362,12 +414,12 @@
         }
 
         // Rafraîchir les données
-        async function rafraichirDonnees() {
+        function rafraichirDonnees() {
             // Sauvegarder les données locales actuelles
             const donneesLocales = { ...progression };
             
-            // Charger les données du serveur
-            await chargerProgression();
+            // Charger les données du stockage
+            chargerProgression();
             
             // Fusionner : les données locales ont priorité (pour éviter de perdre ce qu'on vient de faire)
             progression = { ...progression, ...donneesLocales };
@@ -377,7 +429,7 @@
         }
 
         // Réinitialiser seulement mes rues
-        async function resetMesRues() {
+        function resetMesRues() {
             const collaborateur = document.getElementById('collaborateur').value.trim();
             
             if (!collaborateur) {
@@ -408,7 +460,7 @@
                 delete progression[rueId];
             });
 
-            await sauvegarderProgression();
+            sauvegarderProgression();
             afficherRues();
             mettreAJourStats();
 
@@ -416,7 +468,7 @@
         }
 
         // Réinitialiser TOUTE la progression (protégé par mot de passe)
-        async function resetTout() {
+        function resetTout() {
             // Mot de passe admin (CHANGEZ-LE !)
             const MOT_DE_PASSE_ADMIN = 'admin2024';
             
@@ -447,7 +499,7 @@
             if (!confirmer) return;
 
             progression = {};
-            await sauvegarderProgression();
+            sauvegarderProgression();
             afficherRues();
             mettreAJourStats();
 
@@ -459,6 +511,122 @@
             const now = new Date();
             document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('fr-FR');
         }
+
+        // Toggle du panneau de stats (mobile)
+        let statsExpanded = window.innerWidth >= 768; // Ouvert sur desktop, fermé sur mobile
+        
+        function toggleStats() {
+            statsExpanded = !statsExpanded;
+            const content = document.getElementById('statsContent');
+            const btn = document.getElementById('toggleStatsBtn');
+            
+            if (statsExpanded) {
+                content.style.display = 'block';
+                btn.textContent = '▼';
+            } else {
+                content.style.display = 'none';
+                btn.textContent = '▲';
+            }
+        }
+
+        // Rechercher une rue
+        function rechercherRue(query) {
+            const searchResults = document.getElementById('searchResults');
+            
+            if (!query || query.length < 2) {
+                searchResults.classList.add('hidden');
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            const normalizeString = (str) => {
+                return str.toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, ''); // Enlever les accents
+            };
+
+            const normalizedQuery = normalizeString(query);
+            
+            // Filtrer les rues qui correspondent à la recherche
+            const resultats = rues.filter(rue => 
+                normalizeString(rue.nom).includes(normalizedQuery)
+            ).slice(0, 10); // Limiter à 10 résultats
+
+            if (resultats.length === 0) {
+                searchResults.innerHTML = '<div class="p-2 text-gray-500 text-sm">Aucune rue trouvée</div>';
+                searchResults.classList.remove('hidden');
+                return;
+            }
+
+            // Afficher les résultats
+            searchResults.innerHTML = resultats.map(rue => {
+                const estVisitee = progression[rue.id];
+                const icone = estVisitee ? '✅' : '❌';
+                const couleur = estVisitee ? 'text-green-600' : 'text-red-600';
+                return `
+                    <div 
+                        class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 ${couleur}"
+                        onclick="zoomerSurRue('${rue.id}')"
+                    >
+                        <div class="flex items-center gap-2">
+                            <span>${icone}</span>
+                            <span class="font-semibold">${rue.nom}</span>
+                        </div>
+                        ${estVisitee ? `<div class="text-xs text-gray-500 ml-6">Par ${estVisitee.collaborateur}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            searchResults.classList.remove('hidden');
+        }
+
+        // Zoomer sur une rue spécifique
+        function zoomerSurRue(rueId) {
+            const rue = rues.find(r => r.id === rueId);
+            if (!rue || !rue.coords || rue.coords.length === 0) return;
+
+            // Calculer le centre de la rue
+            const latSum = rue.coords.reduce((sum, coord) => sum + coord[0], 0);
+            const lonSum = rue.coords.reduce((sum, coord) => sum + coord[1], 0);
+            const centerLat = latSum / rue.coords.length;
+            const centerLon = lonSum / rue.coords.length;
+
+            // Zoomer sur la rue
+            map.setView([centerLat, centerLon], 17);
+
+            // Fermer les résultats de recherche
+            clearSearch();
+
+            // Afficher le popup de la rue
+            setTimeout(() => {
+                const estVisitee = progression[rueId];
+                const message = estVisitee 
+                    ? `📍 ${rue.nom}\n\n✅ Déjà visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
+                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour la marquer !`;
+                alert(message);
+            }, 300);
+        }
+
+        // Effacer la recherche
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').classList.add('hidden');
+            document.getElementById('searchResults').innerHTML = '';
+        }
+
+        // Initialiser l'état du panneau au chargement
+        window.addEventListener('DOMContentLoaded', () => {
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                const content = document.getElementById('statsContent');
+                const btn = document.getElementById('toggleStatsBtn');
+                if (content && btn) {
+                    content.style.display = 'none';
+                    btn.textContent = '▲';
+                    statsExpanded = false;
+                }
+            }
+        });
 
         // Démarrage
         window.onload = init;
