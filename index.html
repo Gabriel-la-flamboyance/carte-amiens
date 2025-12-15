@@ -226,6 +226,10 @@
             
             ruesLayer = L.layerGroup().addTo(map);
             
+            // Sauvegarder globalement
+            window.map = map;
+            window.ruesLayer = ruesLayer;
+            
             // Charger les rues
             await chargerRues();
         }
@@ -284,10 +288,12 @@
 
         // Afficher les rues sur la carte
         function afficherRues() {
-            ruesLayer.clearLayers();
+            if (!window.ruesLayer) return;
+            window.ruesLayer.clearLayers();
             
-            rues.forEach(rue => {
-                const estVisitee = progression[rue.id];
+            const ruesArray = window.rues || rues;
+            ruesArray.forEach(rue => {
+                const estVisitee = window.progression[rue.id];
                 const couleur = estVisitee ? '#22c55e' : '#ef4444';
                 const poids = estVisitee ? 4 : 2.5;
 
@@ -295,7 +301,8 @@
                     color: couleur,
                     weight: poids,
                     opacity: 0.7,
-                    bubblingMouseEvents: false
+                    bubblingMouseEvents: false,
+                    rueId: rue.id // Sauvegarder l'ID pour référence
                 });
 
                 let popupContent = `<div style="padding: 8px; min-width: 200px;">
@@ -333,7 +340,7 @@
                 polyline.bindPopup(popupContent, popupOptions);
                 polyline.bindTooltip(rue.nom);
                 
-                polyline.addTo(ruesLayer);
+                polyline.addTo(window.ruesLayer);
             });
         }
 
@@ -346,9 +353,10 @@
                 return;
             }
 
-            if (progression[rueId]) {
+            const progressionObj = window.progression || {};
+            if (progressionObj[rueId]) {
                 const confirmer = confirm(
-                    `Cette rue a déjà été visitée par ${progression[rueId].collaborateur}.\n\nVoulez-vous remplacer cette information ?`
+                    `Cette rue a déjà été visitée par ${progressionObj[rueId].collaborateur}.\n\nVoulez-vous remplacer cette information ?`
                 );
                 if (!confirmer) return;
             }
@@ -370,8 +378,10 @@
 
         // Mettre à jour les statistiques
         function mettreAJourStats() {
-            const total = rues.length;
-            const visitees = Object.keys(progression).length;
+            const ruesArray = window.rues || rues;
+            const progressionObj = window.progression || progression;
+            const total = ruesArray.length;
+            const visitees = Object.keys(progressionObj).length;
             const restantes = total - visitees;
             const pourcentage = total > 0 ? Math.round((visitees / total) * 100) : 0;
 
@@ -388,7 +398,8 @@
 
             // Statistiques par collaborateur
             const collaborateurs = {};
-            Object.values(progression).forEach(info => {
+            const progressionObj = window.progression || progression;
+            Object.values(progressionObj).forEach(info => {
                 collaborateurs[info.collaborateur] = (collaborateurs[info.collaborateur] || 0) + 1;
             });
 
@@ -430,7 +441,8 @@
                 return;
             }
 
-            const mesRues = Object.entries(progression).filter(
+            const progressionObj = window.progression || {};
+            const mesRues = Object.entries(progressionObj).filter(
                 ([_, info]) => info.collaborateur === collaborateur
             );
 
@@ -492,7 +504,8 @@
 
             const normalizedQuery = normalizeString(query);
             
-            const resultats = rues.filter(rue => 
+            const ruesArray = window.rues || rues;
+            const resultats = ruesArray.filter(rue => 
                 normalizeString(rue.nom).includes(normalizedQuery)
             ).slice(0, 10);
 
@@ -502,8 +515,9 @@
                 return;
             }
 
+            const progressionObj = window.progression || {};
             searchResults.innerHTML = resultats.map(rue => {
-                const estVisitee = progression[rue.id];
+                const estVisitee = progressionObj[rue.id];
                 const icone = estVisitee ? '✅' : '❌';
                 const couleur = estVisitee ? 'text-green-600' : 'text-red-600';
                 return `
@@ -525,7 +539,8 @@
 
         // Zoomer sur une rue spécifique
         function zoomerSurRue(rueId) {
-            const rue = rues.find(r => r.id === rueId);
+            const ruesArray = window.rues || rues;
+            const rue = ruesArray.find(r => r.id === rueId);
             if (!rue || !rue.coords || rue.coords.length === 0) return;
 
             const latSum = rue.coords.reduce((sum, coord) => sum + coord[0], 0);
@@ -537,7 +552,8 @@
             clearSearch();
 
             setTimeout(() => {
-                const estVisitee = progression[rueId];
+                const progressionObj = window.progression || {};
+                const estVisitee = progressionObj[rueId];
                 const message = estVisitee 
                     ? `📍 ${rue.nom}\n\n✅ Déjà visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
                     : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour la marquer !`;
@@ -566,16 +582,13 @@
             }
         });
 
-        // Rendre les fonctions disponibles globalement
-        window.afficherRues = afficherRues;
-        window.mettreAJourStats = mettreAJourStats;
-        window.progression = progression;
-
         // Rendre les fonctions globalement disponibles avant Firebase
         window.afficherRues = afficherRues;
         window.mettreAJourStats = mettreAJourStats;
         window.progression = progression;
         window.rues = rues;
+        window.map = null; // Sera initialisé par init()
+        window.ruesLayer = null;
         
         // Démarrage
         window.onload = init;
@@ -614,6 +627,8 @@
             const data = snapshot.val();
             window.progression = data || {};
             
+            console.log('🔥 Firebase mis à jour:', Object.keys(window.progression).length, 'rues marquées');
+            
             // Appeler les fonctions seulement si elles existent et si les rues sont chargées
             if (window.afficherRues && window.rues && window.rues.length > 0) {
                 window.afficherRues();
@@ -623,7 +638,7 @@
             }
             updateFirebaseStatus(true);
         }, (error) => {
-            console.error('Erreur Firebase:', error);
+            console.error('❌ Erreur Firebase:', error);
             updateFirebaseStatus(false);
         });
         
