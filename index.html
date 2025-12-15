@@ -1,630 +1,147 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distribution Flyers Amiens - Sync Firebase</title>
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <style>
-        #map-container {
-            height: calc(100vh - 240px);
-            position: relative;
-        }
-        
-        .leaflet-container {
-            height: 100%;
-            width: 100%;
-        }
-        
-        /* Sur mobile, replier le panneau de stats par défaut */
-        @media (max-width: 768px) {
-            #statsContent {
-                display: none;
-            }
-            
-            /* Ajuster la hauteur de la carte sur mobile */
-            #map-container {
-                height: calc(100vh - 180px);
-            }
-        }
-        
-        .hidden {
-            display: none;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distribution Flyers – Amiens</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+#map { height: 100vh; }
+.leaflet-popup-content { font-size: 14px; }
+</style>
 </head>
+
 <body class="bg-gray-50">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
-        <h1 class="text-2xl font-bold mb-1">🗺️ Distribution de Flyers - Amiens</h1>
-        <p class="text-sm opacity-90">🔥 Synchronisation FIREBASE en temps réel</p>
-    </div>
 
-    <!-- Controls -->
-    <div class="bg-white border-b border-gray-200 p-4 flex flex-wrap gap-4 items-center">
-        <div class="flex items-center gap-2">
-            <label class="font-medium text-gray-700">Votre nom :</label>
-            <input
-                type="text"
-                id="collaborateur"
-                placeholder="Ex: Jean Dupont"
-                class="px-3 py-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-            />
-        </div>
-        
-        <button
-            onclick="rafraichirDonnees()"
-            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all hover:shadow-lg font-semibold"
-        >
-            🔄 Rafraîchir
-        </button>
-        
-        <button
-            onclick="resetMesRues()"
-            class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all hover:shadow-lg font-semibold"
-        >
-            🔄 Réinitialiser mes rues
-        </button>
-        
-        <div class="ml-auto text-sm text-gray-600 flex items-center gap-2">
-            <span id="firebaseStatus" class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
-                Connexion...
-            </span>
-        </div>
-    </div>
+<div class="absolute top-4 left-4 z-[1000] bg-white p-3 rounded-lg shadow">
+<input id="collaborateur" placeholder="Votre nom"
+class="border px-3 py-2 rounded w-48"/>
+</div>
 
-    <!-- Main Content -->
-    <div id="map-container">
-        <div id="loading" class="absolute inset-0 flex items-center justify-center bg-gray-100 z-[2000]">
-            <div class="text-center">
-                <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mb-4"></div>
-                <p class="text-xl font-semibold text-gray-700">Chargement des rues d'Amiens...</p>
-                <p class="text-sm text-gray-500 mt-2">Connexion à Firebase...</p>
-            </div>
-        </div>
-        
-        <div id="map"></div>
+<div id="map"></div>
 
-        <!-- Stats Panel - Repliable sur mobile -->
-        <div class="absolute top-4 right-4 bg-white rounded-lg shadow-2xl w-72 z-[1000] max-w-[calc(100vw-2rem)] md:w-72">
-            <!-- Header avec bouton toggle -->
-            <div class="flex justify-between items-center p-4 border-b-2 border-purple-500">
-                <h3 class="text-lg font-bold">
-                    📊 Statistiques
-                </h3>
-                <button
-                    onclick="toggleStats()"
-                    class="md:hidden px-3 py-1 bg-purple-500 text-white rounded-lg font-bold text-lg"
-                    id="toggleStatsBtn"
-                >
-                    ▼
-                </button>
-            </div>
-            
-            <!-- Contenu repliable -->
-            <div id="statsContent" class="p-4">
-            
-            <!-- Pourcentage de progression grand et visible -->
-            <div class="text-center mb-4 p-3 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg">
-                <div class="text-4xl font-bold text-purple-600" id="pourcentageGrand">0%</div>
-                <div class="text-sm text-gray-600 mt-1">Progression totale</div>
-            </div>
-            
-            <div class="space-y-2 mb-4">
-                <div class="flex justify-between">
-                    <span class="text-gray-700">Total de rues:</span>
-                    <span class="font-bold text-purple-600" id="totalRues">0</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-700">Visitées:</span>
-                    <span class="font-bold text-green-600" id="ruesVisitees">0</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-700">Restantes:</span>
-                    <span class="font-bold text-red-600" id="ruesRestantes">0</span>
-                </div>
-            </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-            <!-- Progress Bar -->
-            <div class="mb-4">
-                <div class="h-6 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                        id="progressBar"
-                        class="h-full bg-gradient-to-r from-purple-500 to-indigo-500 flex items-center justify-center text-white text-xs font-bold transition-all duration-500"
-                        style="width: 0%"
-                    >
-                        0%
-                    </div>
-                </div>
-            </div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-            <!-- Legend -->
-            <div class="mb-4 pb-4 border-b border-gray-200">
-                <div class="flex items-center gap-2 mb-2">
-                    <div class="w-8 h-1 bg-red-500 rounded"></div>
-                    <span class="text-sm text-gray-700">À visiter</span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-1 bg-green-500 rounded"></div>
-                    <span class="text-sm text-gray-700">Visitées</span>
-                </div>
-            </div>
+/* ================= FIREBASE ================= */
+const app = initializeApp({
+  apiKey: "AIzaSyAEUw4R8zeIcVJvoBvJLd6v_WueURjgKKo",
+  databaseURL: "https://carte-amiens-default-rtdb.europe-west1.firebasedatabase.app"
+});
 
-            <!-- Team Stats -->
-            <div id="teamStats"></div>
-            </div><!-- Fin statsContent -->
-        </div>
-    </div>
+const db = getDatabase(app);
+const progRef = ref(db, "progression");
 
-    <!-- Info Banner -->
-    <div class="bg-blue-50 border-t border-blue-200 p-3 text-center text-sm text-blue-800">
-        🔥 <strong>Firebase:</strong> Synchronisation RÉELLE en temps réel ! 
-        Tous les membres de l'équipe voient les MÊMES données instantanément !
-    </div>
+/* ================= MAP ================= */
+const map = L.map("map", {
+  tap: true,
+  dragging: true,
+  touchZoom: true,
+  doubleClickZoom: false
+}).setView([49.8941, 2.2958], 13);
 
-    <!-- Barre de recherche flottante -->
-    <div class="fixed bottom-4 left-4 right-4 md:left-1/4 md:right-1/4 z-[2000]">
-        <div class="bg-white rounded-lg shadow-2xl p-3">
-            <div class="flex gap-2">
-                <input
-                    type="text"
-                    id="searchInput"
-                    placeholder="🔍 Rechercher une rue..."
-                    class="flex-1 px-3 py-2 border-2 border-purple-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400"
-                    oninput="rechercherRue(this.value)"
-                />
-                <button
-                    onclick="clearSearch()"
-                    class="px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-semibold"
-                >
-                    ✕
-                </button>
-            </div>
-            <div id="searchResults" class="mt-2 max-h-48 overflow-y-auto hidden"></div>
-        </div>
-    </div>
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- Firebase -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-        
-        // ============================================
-        // 🔥 CONFIGURATION FIREBASE
-        // ============================================
-        // REMPLACEZ par votre propre configuration Firebase !
-        const firebaseConfig = {
-            apiKey: "AIzaSyAEUw4R8zeIcVJvoBvJLd6v_WueURjgKKo",
-            authDomain: "carte-amiens.firebaseapp.com",
-            databaseURL: "https://carte-amiens-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "carte-amiens",
-            storageBucket: "carte-amiens.firebasestorage.app",
-            messagingSenderId: "799778148360",
-            appId: "1:799778148360:web:5a1b12eb15ac30724441bd"
-        };
-        
-        // Initialiser Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-        const progressionRef = ref(database, 'progression');
-        
-        // Rendre database disponible globalement
-        window.firebaseDB = database;
-        window.firebaseProgressionRef = progressionRef;
-        
-        // Écouter les changements en temps réel
-        onValue(progressionRef, (snapshot) => {
-            const data = snapshot.val();
-            window.progression = data || {};
-            window.afficherRues();
-            window.mettreAJourStats();
-            updateFirebaseStatus(true);
-        }, (error) => {
-            console.error('Erreur Firebase:', error);
-            updateFirebaseStatus(false);
-        });
-        
-        function updateFirebaseStatus(connected) {
-            const status = document.getElementById('firebaseStatus');
-            if (connected) {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Connecté';
-                status.className = 'flex items-center gap-1 text-green-600';
-            } else {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Déconnecté';
-                status.className = 'flex items-center gap-1 text-red-600';
-            }
-        }
-    </script>
-    
-    <script>
-        // Configuration
-        const AMIENS_CENTER = [49.8941, 2.2958];
-        
-        let map;
-        let rues = [];
-        let progression = {};
-        let ruesLayer;
+const layer = L.layerGroup().addTo(map);
+let rues = [];
+let progression = {};
 
-        // Initialisation
-        async function init() {
-            // Initialiser la carte avec options optimisées pour mobile
-            map = L.map('map', {
-                tap: true, // Active le support tactile
-                tapTolerance: 15, // Tolérance pour les taps (important sur mobile)
-                doubleClickZoom: true, // Garde le double-clic pour zoomer
-                touchZoom: true, // Zoom tactile
-                dragging: true, // Déplacement
-                zoomControl: true // Contrôles de zoom
-            }).setView(AMIENS_CENTER, 13);
-            
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
-            
-            ruesLayer = L.layerGroup().addTo(map);
-            
-            // Charger les rues
-            await chargerRues();
-        }
+/* ================= LOAD STREETS ================= */
+async function loadRues() {
+  const query = `
+[out:json];
+way["highway"]["name"](49.85,2.25,49.93,2.35);
+out geom;
+`;
+  const res = await fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: query
+  });
+  const json = await res.json();
+  rues = json.elements.map(r => ({
+    id: "rue_" + r.id,
+    nom: r.tags.name,
+    coords: r.geometry.map(p => [p.lat, p.lon])
+  }));
+  draw();
+}
 
-        // Charger les rues depuis OpenStreetMap
-        async function chargerRues() {
-            try {
-                document.getElementById('loading').style.display = 'flex';
-                
-                const bbox = '49.85,2.25,49.93,2.35';
-                const query = `
-                    [out:json][timeout:25];
-                    (
-                      way["highway"]["name"](${bbox});
-                    );
-                    out geom;
-                `;
-                
-                const response = await fetch('https://overpass-api.de/api/interpreter', {
-                    method: 'POST',
-                    body: query
-                });
-                
-                const data = await response.json();
-                
-                rues = data.elements.map(rue => ({
-                    id: `rue_${rue.id}`,
-                    nom: rue.tags.name || 'Rue sans nom',
-                    coords: rue.geometry.map(point => [point.lat, point.lon])
-                }));
-                
-                afficherRues();
-                mettreAJourStats();
-                
-                document.getElementById('loading').style.display = 'none';
-            } catch (error) {
-                console.error('Erreur:', error);
-                alert('Erreur lors du chargement des rues. Vérifiez votre connexion.');
-                document.getElementById('loading').style.display = 'none';
-            }
-        }
+/* ================= DRAW ================= */
+function draw() {
+  layer.clearLayers();
 
-        // Sauvegarder dans Firebase
-        async function sauvegarderDansFirebase(rueId, data) {
-            try {
-                const { set, ref } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
-                await set(ref(window.firebaseDB, `progression/${rueId}`), data);
-            } catch (error) {
-                console.error('Erreur de sauvegarde Firebase:', error);
-                alert('Erreur de synchronisation. Vérifiez votre connexion Internet.');
-            }
-        }
+  rues.forEach(rue => {
+    const info = progression[rue.id];
+    const visited = !!info;
 
-        // Afficher les rues sur la carte
-        function afficherRues() {
-            ruesLayer.clearLayers();
-            
-            rues.forEach(rue => {
-                const estVisitee = progression[rue.id];
-                const couleur = estVisitee ? '#22c55e' : '#ef4444';
-                const poids = estVisitee ? 4 : 2.5;
+    const poly = L.polyline(rue.coords, {
+      color: visited ? "#22c55e" : "#ef4444",
+      weight: visited ? 6 : 5,
+      opacity: 0.8,
+      interactive: true
+    });
 
-                const polyline = L.polyline(rue.coords, {
-                    color: couleur,
-                    weight: poids,
-                    opacity: 0.7
-                });
+    poly.on("click", () => onRueClick(rue));
+    poly.bindPopup(popupContent(rue));
 
-                let popupContent = `<div style="padding: 8px; min-width: 200px;">
-                    <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${rue.nom}</h3>`;
-                
-                if (estVisitee) {
-                    popupContent += `
-                        <p style="color: #22c55e;">✅ <strong>Visitée</strong></p>
-                        <p style="margin-top: 4px;">Par: ${estVisitee.collaborateur}</p>
-                        <p style="font-size: 12px; color: #666;">${estVisitee.date}</p>
-                    `;
-                } else {
-                    popupContent += `
-                        <p style="color: #ef4444; margin-bottom: 8px;">❌ <strong>Non visitée</strong></p>
-                        <button 
-                            onclick="marquerRue('${rue.id}', '${rue.nom.replace(/'/g, "\\'")}')"
-                            style="width: 100%; padding: 8px 16px; background-color: #22c55e; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;"
-                            onmouseover="this.style.backgroundColor='#16a34a'"
-                            onmouseout="this.style.backgroundColor='#22c55e'"
-                        >
-                            ✓ Marquer cette rue
-                        </button>
-                    `;
-                }
-                popupContent += `</div>`;
+    layer.addLayer(poly);
+  });
+}
 
-                // Options de popup optimisées pour mobile
-                const popupOptions = {
-                    closeButton: true,
-                    autoClose: false,
-                    closeOnClick: false,
-                    className: 'custom-popup'
-                };
+/* ================= CLICK HANDLER ================= */
+async function onRueClick(rue) {
+  const name = document.getElementById("collaborateur").value.trim();
+  if (!name) {
+    alert("Entrez votre nom");
+    return;
+  }
 
-                polyline.bindPopup(popupContent, popupOptions);
-                polyline.bindTooltip(rue.nom);
-                
-                polyline.addTo(ruesLayer);
-            });
-        }
+  if (progression[rue.id]) {
+    const ok = confirm(
+      `Déjà visitée par ${progression[rue.id].collaborateur}\nRemplacer ?`
+    );
+    if (!ok) return;
+  }
 
-        // Marquer une rue comme visitée
-        async function marquerRue(rueId, nomRue) {
-            const collaborateur = document.getElementById('collaborateur').value.trim();
-            
-            if (!collaborateur) {
-                alert('⚠️ Veuillez entrer votre nom avant de marquer une rue !');
-                return;
-            }
+  await set(ref(db, "progression/" + rue.id), {
+    collaborateur: name,
+    date: new Date().toLocaleString("fr-FR"),
+    nomRue: rue.nom
+  });
+}
 
-            if (progression[rueId]) {
-                const confirmer = confirm(
-                    `Cette rue a déjà été visitée par ${progression[rueId].collaborateur}.\n\nVoulez-vous remplacer cette information ?`
-                );
-                if (!confirmer) return;
-            }
+/* ================= POPUP ================= */
+function popupContent(rue) {
+  const info = progression[rue.id];
+  if (!info) {
+    return `
+<b>${rue.nom}</b><br>
+❌ Non visitée<br>
+<span class="text-xs text-gray-500">Tap / clic pour marquer</span>
+`;
+  }
+  return `
+<b>${rue.nom}</b><br>
+✅ Visitée<br>
+Par ${info.collaborateur}<br>
+<small>${info.date}</small>
+`;
+}
 
-            const data = {
-                collaborateur: collaborateur,
-                date: new Date().toLocaleString('fr-FR'),
-                nomRue: nomRue
-            };
+/* ================= FIREBASE SYNC ================= */
+onValue(progRef, snap => {
+  progression = snap.val() || {};
+  draw();
+});
 
-            // Sauvegarder dans Firebase
-            await sauvegarderDansFirebase(rueId, data);
-            
-            // Fermer tous les popups
-            map.closePopup();
-            
-            // Feedback visuel rapide
-            const btn = event?.target;
-            if (btn) {
-                btn.textContent = '✓ Marqué !';
-                btn.style.backgroundColor = '#16a34a';
-            }
-        }
-        
-        // Rendre marquerRue disponible globalement pour les popups
-        window.marquerRue = marquerRue;
+loadRues();
+</script>
 
-        // Mettre à jour les statistiques
-        function mettreAJourStats() {
-            const total = rues.length;
-            const visitees = Object.keys(progression).length;
-            const restantes = total - visitees;
-            const pourcentage = total > 0 ? Math.round((visitees / total) * 100) : 0;
-
-            document.getElementById('totalRues').textContent = total;
-            document.getElementById('ruesVisitees').textContent = visitees;
-            document.getElementById('ruesRestantes').textContent = restantes;
-            
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = pourcentage + '%';
-            progressBar.textContent = pourcentage + '%';
-            
-            // Mettre à jour le grand pourcentage
-            document.getElementById('pourcentageGrand').textContent = pourcentage + '%';
-
-            // Statistiques par collaborateur
-            const collaborateurs = {};
-            Object.values(progression).forEach(info => {
-                collaborateurs[info.collaborateur] = (collaborateurs[info.collaborateur] || 0) + 1;
-            });
-
-            let teamHTML = '';
-            if (Object.keys(collaborateurs).length > 0) {
-                teamHTML = '<h4 class="font-semibold text-sm mb-2 text-gray-700">👥 Équipe</h4>';
-                teamHTML += '<div class="max-h-40 overflow-y-auto space-y-1">';
-                
-                Object.entries(collaborateurs)
-                    .sort((a, b) => b[1] - a[1])
-                    .forEach(([nom, count]) => {
-                        teamHTML += `
-                            <div class="flex justify-between text-sm py-1 border-b border-gray-100">
-                                <span class="text-gray-700 truncate">${nom}</span>
-                                <span class="font-bold text-purple-600">${count}</span>
-                            </div>
-                        `;
-                    });
-                
-                teamHTML += '</div>';
-            }
-            
-            document.getElementById('teamStats').innerHTML = teamHTML;
-        }
-
-        // Rafraîchir les données (déjà automatique avec Firebase)
-        function rafraichirDonnees() {
-            afficherRues();
-            mettreAJourStats();
-            alert('✅ Données rafraîchies !');
-        }
-
-        // Réinitialiser seulement mes rues
-        async function resetMesRues() {
-            const collaborateur = document.getElementById('collaborateur').value.trim();
-            
-            if (!collaborateur) {
-                alert('⚠️ Veuillez entrer votre nom pour pouvoir réinitialiser vos rues !');
-                return;
-            }
-
-            const mesRues = Object.entries(progression).filter(
-                ([_, info]) => info.collaborateur === collaborateur
-            );
-
-            if (mesRues.length === 0) {
-                alert(`Vous n'avez marqué aucune rue sous le nom "${collaborateur}".`);
-                return;
-            }
-
-            const confirmer = confirm(
-                `Vous allez réinitialiser ${mesRues.length} rue(s) que vous avez marquée(s).\n\n` +
-                `Les rues marquées par vos collègues ne seront PAS affectées.\n\n` +
-                `Continuer ?`
-            );
-
-            if (!confirmer) return;
-
-            // Supprimer dans Firebase
-            const { remove, ref } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
-            for (const [rueId, _] of mesRues) {
-                await remove(ref(window.firebaseDB, `progression/${rueId}`));
-            }
-
-            alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) avec succès !`);
-        }
-
-        // Réinitialiser TOUTE la progression
-        // Toggle du panneau de stats (mobile)
-        let statsExpanded = window.innerWidth >= 768;
-        
-        function toggleStats() {
-            statsExpanded = !statsExpanded;
-            const content = document.getElementById('statsContent');
-            const btn = document.getElementById('toggleStatsBtn');
-            
-            if (statsExpanded) {
-                content.style.display = 'block';
-                btn.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                btn.textContent = '▲';
-            }
-        }
-
-        // Rechercher une rue
-        function rechercherRue(query) {
-            const searchResults = document.getElementById('searchResults');
-            
-            if (!query || query.length < 2) {
-                searchResults.classList.add('hidden');
-                searchResults.innerHTML = '';
-                return;
-            }
-
-            const normalizeString = (str) => {
-                return str.toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '');
-            };
-
-            const normalizedQuery = normalizeString(query);
-            
-            const resultats = rues.filter(rue => 
-                normalizeString(rue.nom).includes(normalizedQuery)
-            ).slice(0, 10);
-
-            if (resultats.length === 0) {
-                searchResults.innerHTML = '<div class="p-2 text-gray-500 text-sm">Aucune rue trouvée</div>';
-                searchResults.classList.remove('hidden');
-                return;
-            }
-
-            searchResults.innerHTML = resultats.map(rue => {
-                const estVisitee = progression[rue.id];
-                const icone = estVisitee ? '✅' : '❌';
-                const couleur = estVisitee ? 'text-green-600' : 'text-red-600';
-                return `
-                    <div 
-                        class="p-2 hover:bg-gray-100 cursor-pointer border-b border-gray-200 ${couleur}"
-                        onclick="zoomerSurRue('${rue.id}')"
-                    >
-                        <div class="flex items-center gap-2">
-                            <span>${icone}</span>
-                            <span class="font-semibold">${rue.nom}</span>
-                        </div>
-                        ${estVisitee ? `<div class="text-xs text-gray-500 ml-6">Par ${estVisitee.collaborateur}</div>` : ''}
-                    </div>
-                `;
-            }).join('');
-
-            searchResults.classList.remove('hidden');
-        }
-
-        // Zoomer sur une rue spécifique
-        function zoomerSurRue(rueId) {
-            const rue = rues.find(r => r.id === rueId);
-            if (!rue || !rue.coords || rue.coords.length === 0) return;
-
-            const latSum = rue.coords.reduce((sum, coord) => sum + coord[0], 0);
-            const lonSum = rue.coords.reduce((sum, coord) => sum + coord[1], 0);
-            const centerLat = latSum / rue.coords.length;
-            const centerLon = lonSum / rue.coords.length;
-
-            map.setView([centerLat, centerLon], 17);
-            clearSearch();
-
-            setTimeout(() => {
-                const estVisitee = progression[rueId];
-                const message = estVisitee 
-                    ? `📍 ${rue.nom}\n\n✅ Déjà visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
-                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour la marquer !`;
-                alert(message);
-            }, 300);
-        }
-
-        // Effacer la recherche
-        function clearSearch() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResults').classList.add('hidden');
-            document.getElementById('searchResults').innerHTML = '';
-        }
-
-        // Initialiser l'état du panneau au chargement
-        window.addEventListener('DOMContentLoaded', () => {
-            const isMobile = window.innerWidth < 768;
-            if (isMobile) {
-                const content = document.getElementById('statsContent');
-                const btn = document.getElementById('toggleStatsBtn');
-                if (content && btn) {
-                    content.style.display = 'none';
-                    btn.textContent = '▲';
-                    statsExpanded = false;
-                }
-            }
-        });
-
-        // Rendre les fonctions disponibles globalement
-        window.afficherRues = afficherRues;
-        window.mettreAJourStats = mettreAJourStats;
-        window.progression = progression;
-
-        // Démarrage
-        window.onload = init;
-    </script>
 </body>
 </html>
