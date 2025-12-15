@@ -257,8 +257,15 @@
 
         // Initialisation
         async function init() {
-            // Initialiser la carte
-            map = L.map('map').setView(AMIENS_CENTER, 13);
+            // Initialiser la carte avec options optimisées pour mobile
+            map = L.map('map', {
+                tap: true, // Active le support tactile
+                tapTolerance: 15, // Tolérance pour les taps (important sur mobile)
+                doubleClickZoom: true, // Garde le double-clic pour zoomer
+                touchZoom: true, // Zoom tactile
+                dragging: true, // Déplacement
+                zoomControl: true // Contrôles de zoom
+            }).setView(AMIENS_CENTER, 13);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap contributors',
@@ -335,7 +342,7 @@
                     opacity: 0.7
                 });
 
-                let popupContent = `<div style="padding: 8px;">
+                let popupContent = `<div style="padding: 8px; min-width: 200px;">
                     <h3 style="font-weight: bold; font-size: 16px; margin-bottom: 8px;">${rue.nom}</h3>`;
                 
                 if (estVisitee) {
@@ -346,16 +353,29 @@
                     `;
                 } else {
                     popupContent += `
-                        <p style="color: #ef4444;">❌ <strong>Non visitée</strong></p>
-                        <p style="font-size: 12px; color: #666; margin-top: 4px;">Cliquez pour marquer</p>
+                        <p style="color: #ef4444; margin-bottom: 8px;">❌ <strong>Non visitée</strong></p>
+                        <button 
+                            onclick="marquerRue('${rue.id}', '${rue.nom.replace(/'/g, "\\'")}')"
+                            style="width: 100%; padding: 8px 16px; background-color: #22c55e; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px;"
+                            onmouseover="this.style.backgroundColor='#16a34a'"
+                            onmouseout="this.style.backgroundColor='#22c55e'"
+                        >
+                            ✓ Marquer cette rue
+                        </button>
                     `;
                 }
                 popupContent += `</div>`;
 
-                polyline.bindPopup(popupContent);
+                // Options de popup optimisées pour mobile
+                const popupOptions = {
+                    closeButton: true,
+                    autoClose: false,
+                    closeOnClick: false,
+                    className: 'custom-popup'
+                };
+
+                polyline.bindPopup(popupContent, popupOptions);
                 polyline.bindTooltip(rue.nom);
-                
-                polyline.on('click', () => marquerRue(rue.id, rue.nom));
                 
                 polyline.addTo(ruesLayer);
             });
@@ -385,7 +405,20 @@
 
             // Sauvegarder dans Firebase
             await sauvegarderDansFirebase(rueId, data);
+            
+            // Fermer tous les popups
+            map.closePopup();
+            
+            // Feedback visuel rapide
+            const btn = event?.target;
+            if (btn) {
+                btn.textContent = '✓ Marqué !';
+                btn.style.backgroundColor = '#16a34a';
+            }
         }
+        
+        // Rendre marquerRue disponible globalement pour les popups
+        window.marquerRue = marquerRue;
 
         // Mettre à jour les statistiques
         function mettreAJourStats() {
