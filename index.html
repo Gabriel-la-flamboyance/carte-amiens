@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Distribution Flyers Amiens - Sync Auto</title>
+    <title>Distribution Flyers Amiens - Sync Firebase</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -43,7 +43,7 @@
     <!-- Header -->
     <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
         <h1 class="text-2xl font-bold mb-1">🗺️ Distribution de Flyers - Amiens</h1>
-        <p class="text-sm opacity-90">Synchronisation automatique en temps réel</p>
+        <p class="text-sm opacity-90">🔥 Synchronisation FIREBASE en temps réel</p>
     </div>
 
     <!-- Controls -->
@@ -79,8 +79,11 @@
             ⚠️ Réinitialiser TOUT (Admin)
         </button>
         
-        <div class="ml-auto text-sm text-gray-600">
-            Dernière synchro: <span id="lastUpdate">--:--:--</span>
+        <div class="ml-auto text-sm text-gray-600 flex items-center gap-2">
+            <span id="firebaseStatus" class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                Connexion...
+            </span>
         </div>
     </div>
 
@@ -90,7 +93,7 @@
             <div class="text-center">
                 <div class="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-600 mb-4"></div>
                 <p class="text-xl font-semibold text-gray-700">Chargement des rues d'Amiens...</p>
-                <p class="text-sm text-gray-500 mt-2">Cela peut prendre 15-30 secondes</p>
+                <p class="text-sm text-gray-500 mt-2">Connexion à Firebase...</p>
             </div>
         </div>
         
@@ -169,8 +172,8 @@
 
     <!-- Info Banner -->
     <div class="bg-blue-50 border-t border-blue-200 p-3 text-center text-sm text-blue-800">
-        💡 <strong>Astuce:</strong> Les données sont synchronisées automatiquement. 
-        Tous les membres de l'équipe voient les mêmes informations en temps réel !
+        🔥 <strong>Firebase:</strong> Synchronisation RÉELLE en temps réel ! 
+        Tous les membres de l'équipe voient les MÊMES données instantanément !
     </div>
 
     <!-- Barre de recherche flottante -->
@@ -198,6 +201,58 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        // ============================================
+        // 🔥 CONFIGURATION FIREBASE
+        // ============================================
+        // REMPLACEZ par votre propre configuration Firebase !
+        const firebaseConfig = {
+            apiKey: "VOTRE_API_KEY",
+            authDomain: "VOTRE_PROJECT.firebaseapp.com",
+            databaseURL: "https://VOTRE_PROJECT.firebaseio.com",
+            projectId: "VOTRE_PROJECT_ID",
+            storageBucket: "VOTRE_PROJECT.appspot.com",
+            messagingSenderId: "VOTRE_SENDER_ID",
+            appId: "VOTRE_APP_ID"
+        };
+        
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const progressionRef = ref(database, 'progression');
+        
+        // Rendre database disponible globalement
+        window.firebaseDB = database;
+        window.firebaseProgressionRef = progressionRef;
+        
+        // Écouter les changements en temps réel
+        onValue(progressionRef, (snapshot) => {
+            const data = snapshot.val();
+            window.progression = data || {};
+            window.afficherRues();
+            window.mettreAJourStats();
+            updateFirebaseStatus(true);
+        }, (error) => {
+            console.error('Erreur Firebase:', error);
+            updateFirebaseStatus(false);
+        });
+        
+        function updateFirebaseStatus(connected) {
+            const status = document.getElementById('firebaseStatus');
+            if (connected) {
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Connecté';
+                status.className = 'flex items-center gap-1 text-green-600';
+            } else {
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Déconnecté';
+                status.className = 'flex items-center gap-1 text-red-600';
+            }
+        }
+    </script>
+    
     <script>
         // ========================================
         // 🔐 CONFIGURATION MOT DE PASSE ADMIN
@@ -209,7 +264,6 @@
         
         // Configuration
         const AMIENS_CENTER = [49.8941, 2.2958];
-        const STORAGE_KEY = 'amiens_progression';
         
         let map;
         let rues = [];
@@ -228,12 +282,8 @@
             
             ruesLayer = L.layerGroup().addTo(map);
             
-            // Charger les données
-            chargerProgression();
+            // Charger les rues
             await chargerRues();
-            
-            // Auto-refresh toutes les 10 secondes
-            setInterval(rafraichirDonnees, 10000);
         }
 
         // Charger les rues depuis OpenStreetMap
@@ -274,28 +324,14 @@
             }
         }
 
-        // Charger la progression depuis localStorage
-        function chargerProgression() {
+        // Sauvegarder dans Firebase
+        async function sauvegarderDansFirebase(rueId, data) {
             try {
-                const data = localStorage.getItem(STORAGE_KEY);
-                if (data) {
-                    progression = JSON.parse(data);
-                }
+                const { set, ref } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
+                await set(ref(window.firebaseDB, `progression/${rueId}`), data);
             } catch (error) {
-                console.log('Aucune progression existante');
-                progression = {};
-            }
-            updateLastSyncTime();
-        }
-
-        // Sauvegarder la progression dans localStorage
-        function sauvegarderProgression() {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(progression));
-                updateLastSyncTime();
-            } catch (error) {
-                console.error('Erreur de sauvegarde:', error);
-                alert('Erreur lors de la sauvegarde. Votre navigateur bloque peut-être le stockage.');
+                console.error('Erreur de sauvegarde Firebase:', error);
+                alert('Erreur de synchronisation. Vérifiez votre connexion Internet.');
             }
         }
 
@@ -341,7 +377,7 @@
         }
 
         // Marquer une rue comme visitée
-        function marquerRue(rueId, nomRue) {
+        async function marquerRue(rueId, nomRue) {
             const collaborateur = document.getElementById('collaborateur').value.trim();
             
             if (!collaborateur) {
@@ -356,15 +392,14 @@
                 if (!confirmer) return;
             }
 
-            progression[rueId] = {
+            const data = {
                 collaborateur: collaborateur,
                 date: new Date().toLocaleString('fr-FR'),
                 nomRue: nomRue
             };
 
-            sauvegarderProgression();
-            afficherRues();
-            mettreAJourStats();
+            // Sauvegarder dans Firebase
+            await sauvegarderDansFirebase(rueId, data);
         }
 
         // Mettre à jour les statistiques
@@ -413,23 +448,15 @@
             document.getElementById('teamStats').innerHTML = teamHTML;
         }
 
-        // Rafraîchir les données
+        // Rafraîchir les données (déjà automatique avec Firebase)
         function rafraichirDonnees() {
-            // Sauvegarder les données locales actuelles
-            const donneesLocales = { ...progression };
-            
-            // Charger les données du stockage
-            chargerProgression();
-            
-            // Fusionner : les données locales ont priorité (pour éviter de perdre ce qu'on vient de faire)
-            progression = { ...progression, ...donneesLocales };
-            
             afficherRues();
             mettreAJourStats();
+            alert('✅ Données rafraîchies !');
         }
 
         // Réinitialiser seulement mes rues
-        function resetMesRues() {
+        async function resetMesRues() {
             const collaborateur = document.getElementById('collaborateur').value.trim();
             
             if (!collaborateur) {
@@ -437,7 +464,6 @@
                 return;
             }
 
-            // Compter combien de rues appartiennent à cet utilisateur
             const mesRues = Object.entries(progression).filter(
                 ([_, info]) => info.collaborateur === collaborateur
             );
@@ -455,21 +481,17 @@
 
             if (!confirmer) return;
 
-            // Supprimer seulement les rues de cet utilisateur
-            mesRues.forEach(([rueId, _]) => {
-                delete progression[rueId];
-            });
-
-            sauvegarderProgression();
-            afficherRues();
-            mettreAJourStats();
+            // Supprimer dans Firebase
+            const { remove, ref } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
+            for (const [rueId, _] of mesRues) {
+                await remove(ref(window.firebaseDB, `progression/${rueId}`));
+            }
 
             alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) avec succès !`);
         }
 
-        // Réinitialiser TOUTE la progression (protégé par mot de passe)
-        function resetTout() {
-            // Mot de passe admin (CHANGEZ-LE !)
+        // Réinitialiser TOUTE la progression
+        async function resetTout() {
             const MOT_DE_PASSE_ADMIN = 'admin2024';
             
             const motDePasse = prompt(
@@ -498,22 +520,15 @@
 
             if (!confirmer) return;
 
-            progression = {};
-            sauvegarderProgression();
-            afficherRues();
-            mettreAJourStats();
+            // Supprimer tout dans Firebase
+            const { remove } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js');
+            await remove(window.firebaseProgressionRef);
 
             alert('✅ Toute la progression a été réinitialisée.');
         }
 
-        // Mettre à jour l'heure de synchronisation
-        function updateLastSyncTime() {
-            const now = new Date();
-            document.getElementById('lastUpdate').textContent = now.toLocaleTimeString('fr-FR');
-        }
-
         // Toggle du panneau de stats (mobile)
-        let statsExpanded = window.innerWidth >= 768; // Ouvert sur desktop, fermé sur mobile
+        let statsExpanded = window.innerWidth >= 768;
         
         function toggleStats() {
             statsExpanded = !statsExpanded;
@@ -542,15 +557,14 @@
             const normalizeString = (str) => {
                 return str.toLowerCase()
                     .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, ''); // Enlever les accents
+                    .replace(/[\u0300-\u036f]/g, '');
             };
 
             const normalizedQuery = normalizeString(query);
             
-            // Filtrer les rues qui correspondent à la recherche
             const resultats = rues.filter(rue => 
                 normalizeString(rue.nom).includes(normalizedQuery)
-            ).slice(0, 10); // Limiter à 10 résultats
+            ).slice(0, 10);
 
             if (resultats.length === 0) {
                 searchResults.innerHTML = '<div class="p-2 text-gray-500 text-sm">Aucune rue trouvée</div>';
@@ -558,7 +572,6 @@
                 return;
             }
 
-            // Afficher les résultats
             searchResults.innerHTML = resultats.map(rue => {
                 const estVisitee = progression[rue.id];
                 const icone = estVisitee ? '✅' : '❌';
@@ -585,19 +598,14 @@
             const rue = rues.find(r => r.id === rueId);
             if (!rue || !rue.coords || rue.coords.length === 0) return;
 
-            // Calculer le centre de la rue
             const latSum = rue.coords.reduce((sum, coord) => sum + coord[0], 0);
             const lonSum = rue.coords.reduce((sum, coord) => sum + coord[1], 0);
             const centerLat = latSum / rue.coords.length;
             const centerLon = lonSum / rue.coords.length;
 
-            // Zoomer sur la rue
             map.setView([centerLat, centerLon], 17);
-
-            // Fermer les résultats de recherche
             clearSearch();
 
-            // Afficher le popup de la rue
             setTimeout(() => {
                 const estVisitee = progression[rueId];
                 const message = estVisitee 
@@ -627,6 +635,11 @@
                 }
             }
         });
+
+        // Rendre les fonctions disponibles globalement
+        window.afficherRues = afficherRues;
+        window.mettreAJourStats = mettreAJourStats;
+        window.progression = progression;
 
         // Démarrage
         window.onload = init;
