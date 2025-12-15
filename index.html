@@ -194,58 +194,6 @@
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
-    <!-- Firebase -->
-    <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
-        
-        // ============================================
-        // 🔥 CONFIGURATION FIREBASE
-        // ============================================
-        // REMPLACEZ par votre propre configuration Firebase !
-        const firebaseConfig = {
-            apiKey: "VOTRE_API_KEY",
-            authDomain: "VOTRE_PROJECT.firebaseapp.com",
-            databaseURL: "https://VOTRE_PROJECT.firebaseio.com",
-            projectId: "VOTRE_PROJECT_ID",
-            storageBucket: "VOTRE_PROJECT.appspot.com",
-            messagingSenderId: "VOTRE_SENDER_ID",
-            appId: "VOTRE_APP_ID"
-        };
-        
-        // Initialiser Firebase
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-        const progressionRef = ref(database, 'progression');
-        
-        // Rendre database disponible globalement
-        window.firebaseDB = database;
-        window.firebaseProgressionRef = progressionRef;
-        
-        // Écouter les changements en temps réel
-        onValue(progressionRef, (snapshot) => {
-            const data = snapshot.val();
-            window.progression = data || {};
-            window.afficherRues();
-            window.mettreAJourStats();
-            updateFirebaseStatus(true);
-        }, (error) => {
-            console.error('Erreur Firebase:', error);
-            updateFirebaseStatus(false);
-        });
-        
-        function updateFirebaseStatus(connected) {
-            const status = document.getElementById('firebaseStatus');
-            if (connected) {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Connecté';
-                status.className = 'flex items-center gap-1 text-green-600';
-            } else {
-                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Déconnecté';
-                status.className = 'flex items-center gap-1 text-red-600';
-            }
-        }
-    </script>
-    
     <script>
         // Configuration
         const AMIENS_CENTER = [49.8941, 2.2958];
@@ -254,6 +202,9 @@
         let rues = [];
         let progression = {};
         let ruesLayer;
+        
+        // Rendre rues disponible globalement
+        window.rues = rues;
 
         // Initialisation
         async function init() {
@@ -305,6 +256,9 @@
                     nom: rue.tags.name || 'Rue sans nom',
                     coords: rue.geometry.map(point => [point.lat, point.lon])
                 }));
+                
+                // Mettre à jour window.rues
+                window.rues = rues;
                 
                 afficherRues();
                 mettreAJourStats();
@@ -405,28 +359,10 @@
                 nomRue: nomRue
             };
 
-            // Mise à jour locale immédiate pour feedback rapide
-            progression[rueId] = data;
-            
-            // Sauvegarder dans Firebase
+            // Sauvegarder dans Firebase - la mise à jour se fera via onValue
             await sauvegarderDansFirebase(rueId, data);
             
-            // Fermer tous les popups
-            map.closePopup();
-            
-            // Régénérer l'affichage pour mettre à jour les couleurs et popups
-            afficherRues();
-            mettreAJourStats();
-            
-            // Rouvrir le popup de cette rue pour afficher le nouveau statut
-            setTimeout(() => {
-                // Trouver la polyline correspondante et ouvrir son popup
-                ruesLayer.eachLayer(layer => {
-                    if (layer._popup && layer._popup._content && layer._popup._content.includes(nomRue)) {
-                        layer.openPopup();
-                    }
-                });
-            }, 100);
+            // Firebase va déclencher onValue qui mettra à jour l'affichage automatiquement
         }
         
         // Rendre marquerRue disponible globalement pour les popups
@@ -635,8 +571,72 @@
         window.mettreAJourStats = mettreAJourStats;
         window.progression = progression;
 
+        // Rendre les fonctions globalement disponibles avant Firebase
+        window.afficherRues = afficherRues;
+        window.mettreAJourStats = mettreAJourStats;
+        window.progression = progression;
+        window.rues = rues;
+        
         // Démarrage
         window.onload = init;
+    </script>
+    
+    <!-- Firebase - Chargé APRÈS les fonctions principales -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, onValue, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        
+        // ============================================
+        // 🔥 CONFIGURATION FIREBASE
+        // ============================================
+        // REMPLACEZ par votre propre configuration Firebase !
+        const firebaseConfig = {
+            apiKey: "VOTRE_API_KEY",
+            authDomain: "VOTRE_PROJECT.firebaseapp.com",
+            databaseURL: "https://VOTRE_PROJECT.firebaseio.com",
+            projectId: "VOTRE_PROJECT_ID",
+            storageBucket: "VOTRE_PROJECT.appspot.com",
+            messagingSenderId: "VOTRE_SENDER_ID",
+            appId: "VOTRE_APP_ID"
+        };
+        
+        // Initialiser Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const progressionRef = ref(database, 'progression');
+        
+        // Rendre database disponible globalement
+        window.firebaseDB = database;
+        window.firebaseProgressionRef = progressionRef;
+        
+        // Écouter les changements en temps réel
+        onValue(progressionRef, (snapshot) => {
+            const data = snapshot.val();
+            window.progression = data || {};
+            
+            // Appeler les fonctions seulement si elles existent et si les rues sont chargées
+            if (window.afficherRues && window.rues && window.rues.length > 0) {
+                window.afficherRues();
+            }
+            if (window.mettreAJourStats) {
+                window.mettreAJourStats();
+            }
+            updateFirebaseStatus(true);
+        }, (error) => {
+            console.error('Erreur Firebase:', error);
+            updateFirebaseStatus(false);
+        });
+        
+        function updateFirebaseStatus(connected) {
+            const status = document.getElementById('firebaseStatus');
+            if (connected) {
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Connecté';
+                status.className = 'flex items-center gap-1 text-green-600';
+            } else {
+                status.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> Déconnecté';
+                status.className = 'flex items-center gap-1 text-red-600';
+            }
+        }
     </script>
 </body>
 </html>
