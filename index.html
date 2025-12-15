@@ -260,11 +260,12 @@
             // Initialiser la carte avec options optimisées pour mobile
             map = L.map('map', {
                 tap: true, // Active le support tactile
-                tapTolerance: 15, // Tolérance pour les taps (important sur mobile)
-                doubleClickZoom: true, // Garde le double-clic pour zoomer
-                touchZoom: true, // Zoom tactile
+                tapTolerance: 20, // Tolérance augmentée pour les taps (important sur mobile)
+                doubleClickZoom: false, // Désactiver le double-clic pour éviter conflit avec tap
+                touchZoom: true, // Zoom tactile avec pinch
                 dragging: true, // Déplacement
-                zoomControl: true // Contrôles de zoom
+                zoomControl: true, // Contrôles de zoom
+                boxZoom: false // Désactiver le box zoom
             }).setView(AMIENS_CENTER, 13);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -339,7 +340,8 @@
                 const polyline = L.polyline(rue.coords, {
                     color: couleur,
                     weight: poids,
-                    opacity: 0.7
+                    opacity: 0.7,
+                    bubblingMouseEvents: false
                 });
 
                 let popupContent = `<div style="padding: 8px; min-width: 200px;">
@@ -377,6 +379,22 @@
                 polyline.bindPopup(popupContent, popupOptions);
                 polyline.bindTooltip(rue.nom);
                 
+                // Empêcher le double-tap zoom sur mobile et ouvrir directement le popup
+                polyline.on('click', function(e) {
+                    L.DomEvent.stopPropagation(e);
+                    L.DomEvent.preventDefault(e);
+                    map.closePopup(); // Fermer les autres popups
+                    this.openPopup();
+                });
+                
+                // Pour le support tactile spécifique
+                polyline.on('touchend', function(e) {
+                    L.DomEvent.stopPropagation(e);
+                    L.DomEvent.preventDefault(e);
+                    map.closePopup();
+                    this.openPopup();
+                });
+                
                 polyline.addTo(ruesLayer);
             });
         }
@@ -403,18 +421,21 @@
                 nomRue: nomRue
             };
 
+            // Mise à jour locale immédiate pour feedback rapide
+            progression[rueId] = data;
+            
             // Sauvegarder dans Firebase
             await sauvegarderDansFirebase(rueId, data);
             
             // Fermer tous les popups
             map.closePopup();
             
-            // Feedback visuel rapide
-            const btn = event?.target;
-            if (btn) {
-                btn.textContent = '✓ Marqué !';
-                btn.style.backgroundColor = '#16a34a';
-            }
+            // Régénérer l'affichage pour mettre à jour les couleurs et popups
+            afficherRues();
+            mettreAJourStats();
+            
+            // Afficher un message de confirmation
+            alert(`✅ Rue "${nomRue}" marquée comme visitée !`);
         }
         
         // Rendre marquerRue disponible globalement pour les popups
