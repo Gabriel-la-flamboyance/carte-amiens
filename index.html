@@ -202,7 +202,6 @@
         // ============================================
         // 🔥 CONFIGURATION FIREBASE
         // ============================================
-        // REMPLACEZ par votre propre configuration Firebase !
         const firebaseConfig = {
             apiKey: "AIzaSyAEUw4R8zeIcVJvoBvJLd6v_WueURjgKKo",
             authDomain: "carte-amiens.firebaseapp.com",
@@ -406,15 +405,8 @@
             // Sauvegarder dans Firebase
             await sauvegarderDansFirebase(rueId, data);
             
-            // Fermer tous les popups
+            // Fermer le popup
             map.closePopup();
-            
-            // Feedback visuel rapide
-            const btn = event?.target;
-            if (btn) {
-                btn.textContent = '✓ Marqué !';
-                btn.style.backgroundColor = '#16a34a';
-            }
         }
         
         // Rendre marquerRue disponible globalement pour les popups
@@ -508,7 +500,6 @@
             alert(`✅ ${mesRues.length} rue(s) réinitialisée(s) avec succès !`);
         }
 
-        // Réinitialiser TOUTE la progression
         // Toggle du panneau de stats (mobile)
         let statsExpanded = window.innerWidth >= 768;
         
@@ -592,7 +583,7 @@
                 const estVisitee = progression[rueId];
                 const message = estVisitee 
                     ? `📍 ${rue.nom}\n\n✅ Déjà visitée par ${estVisitee.collaborateur}\n${estVisitee.date}`
-                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour la marquer !`;
+                    : `📍 ${rue.nom}\n\n❌ Non visitée\n\nCliquez sur la rue pour ouvrir le popup !`;
                 alert(message);
             }, 300);
         }
