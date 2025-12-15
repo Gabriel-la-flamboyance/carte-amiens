@@ -260,12 +260,12 @@
             // Initialiser la carte avec options optimisées pour mobile
             map = L.map('map', {
                 tap: true, // Active le support tactile
-                tapTolerance: 20, // Tolérance augmentée pour les taps (important sur mobile)
-                doubleClickZoom: false, // Désactiver le double-clic pour éviter conflit avec tap
-                touchZoom: true, // Zoom tactile avec pinch
+                tapTolerance: 15, // Tolérance pour les taps
+                touchZoom: true, // Zoom tactile avec pinch seulement
+                scrollWheelZoom: true, // Zoom avec la molette
+                doubleClickZoom: true, // Zoom avec double-clic
                 dragging: true, // Déplacement
-                zoomControl: true, // Contrôles de zoom
-                boxZoom: false // Désactiver le box zoom
+                zoomControl: true // Contrôles de zoom
             }).setView(AMIENS_CENTER, 13);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -378,22 +378,6 @@
 
                 polyline.bindPopup(popupContent, popupOptions);
                 polyline.bindTooltip(rue.nom);
-                
-                // Empêcher le double-tap zoom sur mobile et ouvrir directement le popup
-                polyline.on('click', function(e) {
-                    L.DomEvent.stopPropagation(e);
-                    L.DomEvent.preventDefault(e);
-                    map.closePopup(); // Fermer les autres popups
-                    this.openPopup();
-                });
-                
-                // Pour le support tactile spécifique
-                polyline.on('touchend', function(e) {
-                    L.DomEvent.stopPropagation(e);
-                    L.DomEvent.preventDefault(e);
-                    map.closePopup();
-                    this.openPopup();
-                });
                 
                 polyline.addTo(ruesLayer);
             });
