@@ -652,9 +652,10 @@
         <div class="modal-content">
             <h2 id="modal-street-name">Rue Example</h2>
             <p id="modal-street-status">Statut: Disponible</p>
-            <div class="modal-buttons">
+            <div class="modal-buttons" id="modal-buttons">
                 <button class="action-btn btn-primary" onclick="markStreetInProgress()">🚶 En cours</button>
                 <button class="action-btn btn-success" onclick="markStreetDone()">✅ Terminé</button>
+                <button class="action-btn btn-danger" id="btn-remove" onclick="removeStreetStatus()" style="display: none;">🗑️ Retirer</button>
                 <button class="action-btn btn-warning" onclick="closeModal()">Annuler</button>
             </div>
         </div>
@@ -1041,8 +1042,10 @@
             
             const status = getStreetStatus(street.id);
             let statusText = 'Disponible';
+            let isCurrentUser = false;
             
             if (status) {
+                isCurrentUser = status.user === currentUser;
                 if (status.status === 'done') {
                     statusText = `Terminé par ${status.user}`;
                 } else if (status.status === 'in-progress') {
@@ -1052,6 +1055,29 @@
             
             document.getElementById('modal-street-name').textContent = street.name;
             document.getElementById('modal-street-status').textContent = `Statut: ${statusText}`;
+            
+            // Afficher/masquer les boutons selon l'état et l'utilisateur
+            const btnInProgress = document.querySelector('.modal-buttons button:nth-child(1)');
+            const btnDone = document.querySelector('.modal-buttons button:nth-child(2)');
+            const btnRemove = document.getElementById('btn-remove');
+            
+            if (status && isCurrentUser) {
+                // L'utilisateur actuel a marqué cette rue, il peut la modifier ou la retirer
+                btnInProgress.style.display = 'inline-block';
+                btnDone.style.display = 'inline-block';
+                btnRemove.style.display = 'inline-block';
+            } else if (status) {
+                // Quelqu'un d'autre a marqué cette rue
+                btnInProgress.style.display = 'none';
+                btnDone.style.display = 'none';
+                btnRemove.style.display = 'none';
+            } else {
+                // Rue disponible
+                btnInProgress.style.display = 'inline-block';
+                btnDone.style.display = 'inline-block';
+                btnRemove.style.display = 'none';
+            }
+            
             document.getElementById('street-modal').style.display = 'flex';
         }
         
@@ -1100,6 +1126,26 @@
             streetStatuses[streetId] = data;
             updateStreetStyle(streetId);
             updateProgress();
+        }
+        
+        function removeStreetStatus() {
+            if (!selectedStreet) return;
+            
+            const status = getStreetStatus(selectedStreet.id);
+            if (status && status.user === currentUser) {
+                // Supprimer le statut de Firebase
+                if (streetsRef) {
+                    streetsRef.child(selectedStreet.id).remove();
+                }
+                
+                // Supprimer localement
+                delete streetStatuses[selectedStreet.id];
+                updateStreetStyle(selectedStreet.id);
+                updateProgress();
+                
+                closeModal();
+                showToast(`${selectedStreet.name} - Statut retiré`);
+            }
         }
         
         function updateStreetStyle(streetId) {
