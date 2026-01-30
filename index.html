@@ -697,6 +697,19 @@
         };
         
         // ==========================================
+        // UTILITAIRES
+        // ==========================================
+        
+        // Masque la moitié de l'ID pour éviter la copie
+        function maskUserId(userId) {
+            if (!userId) return '';
+            const halfLength = Math.ceil(userId.length / 2);
+            const visiblePart = userId.substring(0, halfLength);
+            const maskedPart = '•'.repeat(userId.length - halfLength);
+            return visiblePart + maskedPart;
+        }
+        
+        // ==========================================
         // VARIABLES GLOBALES
         // ==========================================
         
@@ -934,7 +947,7 @@
             // Afficher les infos utilisateur
             const initials = currentUser.substring(0, 2);
             document.getElementById('user-avatar').textContent = initials;
-            document.getElementById('user-name').textContent = currentUser;
+            document.getElementById('user-name').textContent = maskUserId(currentUser);
             
             // Initialiser la carte
             initMap();
@@ -1220,7 +1233,7 @@
                 div.className = 'team-member';
                 div.innerHTML = `
                     <span class="member-dot ${isOnline ? 'member-online' : 'member-offline'}"></span>
-                    <span>${id}</span>
+                    <span>${maskUserId(id)}</span>
                 `;
                 teamList.appendChild(div);
             });
